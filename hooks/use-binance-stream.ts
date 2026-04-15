@@ -58,15 +58,16 @@ export function useBinanceStream(activeIds: string[]) {
         try {
           const msg = JSON.parse(event.data)
           const d = msg.data
-          if (!d?.s || !d?.c || d?.P === undefined) return
+          if (!d?.s || !d?.c || !d?.o) return
 
           const id = BINANCE_SYMBOL_TO_ID[d.s]
           if (!id) return
 
-          bufferRef.current.set(id, {
-            price: parseFloat(d.c),
-            change24h: parseFloat(d.P),
-          })
+          const close = parseFloat(d.c)
+          const open = parseFloat(d.o)
+          const change24h = open !== 0 ? ((close - open) / open) * 100 : 0
+
+          bufferRef.current.set(id, { price: close, change24h })
         } catch {
           // malformed message, skip
         }
