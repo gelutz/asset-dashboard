@@ -11,24 +11,40 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { cryptoAssets, stockAssets } from '@/lib/fake-data'
+import { CRYPTO_CATALOG } from '@/lib/binance-api'
+import { stockAssets } from '@/lib/fake-data'
 import type { MarketItem } from '@/lib/types'
 import { cn } from '@/lib/utils'
+
+// Minimal catalog entries for the picker when full data isn't needed
+const cryptoCatalogAsItems: MarketItem[] = CRYPTO_CATALOG.map((c) => ({
+  id: c.id,
+  symbol: c.symbol,
+  name: c.name,
+  price: 0,
+  change24h: 0,
+  type: 'crypto' as const,
+  dataByRange: { '24h': [], '1m': [], '1y': [], '5y': [] },
+}))
 
 interface AddAssetDialogProps {
   selectedIds: string[]
   onAddAsset: (asset: MarketItem) => void
   type: 'crypto' | 'stock'
   disabled?: boolean
+  /** Live assets to show prices in the picker. Falls back to catalog if not provided. */
+  availableAssets?: MarketItem[]
 }
 
-export function AddAssetDialog({ selectedIds, onAddAsset, type, disabled }: AddAssetDialogProps) {
+export function AddAssetDialog({ selectedIds, onAddAsset, type, disabled, availableAssets }: AddAssetDialogProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
-  const assets = type === 'crypto' ? cryptoAssets : stockAssets
+  const catalog = type === 'crypto' ? cryptoCatalogAsItems : stockAssets
+  const assets = availableAssets ?? catalog
   const filtered = assets.filter(
     (a) =>
+      a.type === type &&
       !selectedIds.includes(a.id) &&
       (a.symbol.toLowerCase().includes(search.toLowerCase()) ||
         a.name.toLowerCase().includes(search.toLowerCase()))
@@ -97,16 +113,20 @@ export function AddAssetDialog({ selectedIds, onAddAsset, type, disabled }: AddA
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-mono text-xs font-medium text-foreground">
-                      ${asset.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className={cn(
-                      'flex items-center justify-end gap-0.5 text-[11px] font-medium',
-                      isPositive ? 'text-success' : 'text-destructive'
-                    )}>
-                      {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
-                      {isPositive ? '+' : ''}{asset.change24h.toFixed(2)}%
-                    </p>
+                    {asset.price > 0 && (
+                      <>
+                        <p className="font-mono text-xs font-medium text-foreground">
+                          ${asset.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className={cn(
+                          'flex items-center justify-end gap-0.5 text-[11px] font-medium',
+                          isPositive ? 'text-success' : 'text-destructive'
+                        )}>
+                          {isPositive ? <TrendingUp className="h-2.5 w-2.5" /> : <TrendingDown className="h-2.5 w-2.5" />}
+                          {isPositive ? '+' : ''}{asset.change24h.toFixed(2)}%
+                        </p>
+                      </>
+                    )}
                   </div>
                 </button>
               )

@@ -3,13 +3,13 @@
 import { TrendingUp, TrendingDown, X, Maximize2, Minimize2 } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts'
 import type { MarketItem, CardSize, DateRange } from '@/lib/types'
-import { USD_TO_BRL } from '@/lib/fake-data'
 import { cn } from '@/lib/utils'
 
 interface MarketCardProps {
   item: MarketItem
   size: CardSize
   dateRange: DateRange
+  usdToBrl: number
   onRemove: (id: string) => void
   onResize: (id: string, size: CardSize) => void
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>
@@ -18,10 +18,10 @@ interface MarketCardProps {
 
 const nextSize: Record<CardSize, CardSize> = { sm: 'md', md: 'lg', lg: 'sm' }
 
-export function MarketCard({ item, size, dateRange, onRemove, onResize, dragHandleProps, isDragging }: MarketCardProps) {
+export function MarketCard({ item, size, dateRange, usdToBrl, onRemove, onResize, dragHandleProps, isDragging }: MarketCardProps) {
   const isPositive = item.change24h >= 0
   const chartColor = isPositive ? '#22c55e' : '#ef4444'
-  const priceInBRL = item.price * USD_TO_BRL
+  const priceInBRL = item.price * usdToBrl
   const chartData = item.dataByRange[dateRange]
 
   const formatUSD = (price: number) =>

@@ -1,8 +1,5 @@
 import type { MarketItem, ChartPoint, DateRange } from './types'
 
-// Taxa de câmbio USD -> BRL (fake)
-export const USD_TO_BRL = 5.08
-
 function generateRange(
   baseValue: number,
   volatility: number,
@@ -16,7 +13,6 @@ function generateRange(
     current = Math.max(current + change, baseValue * 0.1)
     data.push({ time: labelFn(i), value: parseFloat(current.toFixed(4)) })
   }
-  // force last point near baseValue for realism
   data[data.length - 1].value = baseValue
   return data
 }
@@ -34,17 +30,6 @@ function buildRanges(base: number, vol: number): Record<DateRange, ChartPoint[]>
   }
 }
 
-export const cryptoAssets: MarketItem[] = [
-  { id: 'btc',  symbol: 'BTC',  name: 'Bitcoin',    price: 67432.50, change24h:  2.45, type: 'crypto', dataByRange: buildRanges(67432.50, 1) },
-  { id: 'eth',  symbol: 'ETH',  name: 'Ethereum',   price:  3521.80, change24h: -1.23, type: 'crypto', dataByRange: buildRanges(3521.80,  1) },
-  { id: 'sol',  symbol: 'SOL',  name: 'Solana',     price:   142.65, change24h:  5.67, type: 'crypto', dataByRange: buildRanges(142.65,   1) },
-  { id: 'ada',  symbol: 'ADA',  name: 'Cardano',    price:     0.58, change24h: -2.89, type: 'crypto', dataByRange: buildRanges(0.58,     1) },
-  { id: 'xrp',  symbol: 'XRP',  name: 'Ripple',     price:     0.52, change24h:  1.12, type: 'crypto', dataByRange: buildRanges(0.52,     1) },
-  { id: 'dot',  symbol: 'DOT',  name: 'Polkadot',   price:     7.23, change24h: -0.45, type: 'crypto', dataByRange: buildRanges(7.23,     1) },
-  { id: 'doge', symbol: 'DOGE', name: 'Dogecoin',   price:     0.12, change24h:  8.34, type: 'crypto', dataByRange: buildRanges(0.12,     1) },
-  { id: 'avax', symbol: 'AVAX', name: 'Avalanche',  price:    35.67, change24h:  3.21, type: 'crypto', dataByRange: buildRanges(35.67,    1) },
-]
-
 export const stockAssets: MarketItem[] = [
   { id: 'aapl', symbol: 'AAPL', name: 'Apple Inc.',     price:  178.50, change24h:  1.23, type: 'stock', dataByRange: buildRanges(178.50,  1) },
   { id: 'msft', symbol: 'MSFT', name: 'Microsoft',      price:  378.92, change24h: -0.45, type: 'stock', dataByRange: buildRanges(378.92,  1) },
@@ -55,5 +40,3 @@ export const stockAssets: MarketItem[] = [
   { id: 'meta', symbol: 'META', name: 'Meta Platforms', price:  485.20, change24h:  1.89, type: 'stock', dataByRange: buildRanges(485.20,  1) },
   { id: 'nflx', symbol: 'NFLX', name: 'Netflix',        price:  612.45, change24h:  0.67, type: 'stock', dataByRange: buildRanges(612.45,  1) },
 ]
-
-export const allAssets = [...cryptoAssets, ...stockAssets]

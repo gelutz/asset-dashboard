@@ -19,13 +19,15 @@ import { CSS } from '@dnd-kit/utilities'
 import { Bitcoin, LineChart, Plus, ChevronDown, ChevronUp, Wifi, WifiOff, Loader2 } from 'lucide-react'
 import { useBinanceStream, type ConnectionStatus } from '@/hooks/use-binance-stream'
 import { useFinnhubStream } from '@/hooks/use-finnhub-stream'
+import { useCryptoData } from '@/hooks/use-crypto-data'
 import { MarketCard } from './market-card'
 import { AddAssetDialog } from './add-asset-dialog'
-import { cryptoAssets, stockAssets } from '@/lib/fake-data'
+import { stockAssets } from '@/lib/fake-data'
 import type { MarketItem, CardSize, DateRange } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 const MAX_ITEMS = 5
+const HAS_FINNHUB_KEY = !!process.env.NEXT_PUBLIC_FINNHUB_API_KEY
 const DATE_RANGES: { value: DateRange; label: string }[] = [
   { value: '24h', label: '24h' },
   { value: '1m', label: '1M' },
@@ -33,18 +35,18 @@ const DATE_RANGES: { value: DateRange; label: string }[] = [
   { value: '5y', label: '5A' },
 ]
 
-const initialCrypto = cryptoAssets.slice(0, 3)
 const initialStocks = stockAssets.slice(0, 3)
 
 interface SortableCardProps {
   item: MarketItem
   size: CardSize
   dateRange: DateRange
+  usdToBrl: number
   onRemove: (id: string) => void
   onResize: (id: string, size: CardSize) => void
 }
 
-function SortableCard({ item, size, dateRange, onRemove, onResize }: SortableCardProps) {
+function SortableCard({ item, size, dateRange, usdToBrl, onRemove, onResize }: SortableCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   return (
@@ -61,6 +63,7 @@ function SortableCard({ item, size, dateRange, onRemove, onResize }: SortableCar
         item={item}
         size={size}
         dateRange={dateRange}
+        usdToBrl={usdToBrl}
         onRemove={onRemove}
         onResize={onResize}
         dragHandleProps={{ ...attributes, ...listeners }}
@@ -82,6 +85,7 @@ interface MarketSectionProps {
   items: MarketItem[]
   sizes: Record<string, CardSize>
   dateRange: DateRange
+  usdToBrl: number
   onAdd: (asset: MarketItem) => void
   onRemove: (id: string) => void
   onResize: (id: string, size: CardSize) => void
@@ -90,7 +94,7 @@ interface MarketSectionProps {
   connectionStatus?: ConnectionStatus
 }
 
-function MarketSection({ label, icon, items, sizes, dateRange, onAdd, onRemove, onResize, onReorder, type, connectionStatus }: MarketSectionProps) {
+function MarketSection({ label, icon, items, sizes, dateRange, usdToBrl, onAdd, onRemove, onResize, onReorder, type, connectionStatus }: MarketSectionProps) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const ids = items.map((i) => i.id)
 
@@ -129,6 +133,7 @@ function MarketSection({ label, icon, items, sizes, dateRange, onAdd, onRemove, 
                   item={item}
                   size={sizes[item.id] ?? 'sm'}
                   dateRange={dateRange}
+                  usdToBrl={usdToBrl}
                   onRemove={onRemove}
                   onResize={onResize}
                 />
@@ -149,8 +154,10 @@ interface ToolbarProps {
   onStockRangeChange: (r: DateRange) => void
   cryptoItems: MarketItem[]
   stockItems: MarketItem[]
+  allCryptoAssets: MarketItem[]
   onAddCrypto: (a: MarketItem) => void
   onAddStock: (a: MarketItem) => void
+  showStocks: boolean
 }
 
 function Toolbar({
@@ -162,6 +169,8 @@ function Toolbar({
   stockItems,
   onAddCrypto,
   onAddStock,
+  showStocks,
+  allCryptoAssets,
 }: ToolbarProps) {
   const [open, setOpen] = useState(false)
 
@@ -193,35 +202,38 @@ function Toolbar({
               onAddAsset={onAddCrypto}
               type="crypto"
               disabled={cryptoItems.length >= MAX_ITEMS}
+              availableAssets={allCryptoAssets}
             />
           </div>
 
-          {/* Stock row */}
-          <div className="flex items-center gap-2">
-            <LineChart className="h-3.5 w-3.5 shrink-0 text-chart-2" />
-            <div className="flex items-center rounded-md border border-border bg-secondary p-0.5">
-              {DATE_RANGES.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => onStockRangeChange(r.value)}
-                  className={cn(
-                    'rounded px-2.5 py-1 text-[11px] font-medium leading-none transition-colors',
-                    stockRange === r.value
-                      ? 'bg-card text-foreground shadow-sm'
-                      : 'text-muted-foreground'
-                  )}
-                >
-                  {r.label}
-                </button>
-              ))}
+          {/* Stock row — only if Finnhub key is set */}
+          {showStocks && (
+            <div className="flex items-center gap-2">
+              <LineChart className="h-3.5 w-3.5 shrink-0 text-chart-2" />
+              <div className="flex items-center rounded-md border border-border bg-secondary p-0.5">
+                {DATE_RANGES.map((r) => (
+                  <button
+                    key={r.value}
+                    onClick={() => onStockRangeChange(r.value)}
+                    className={cn(
+                      'rounded px-2.5 py-1 text-[11px] font-medium leading-none transition-colors',
+                      stockRange === r.value
+                        ? 'bg-card text-foreground shadow-sm'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+              <AddAssetDialog
+                selectedIds={stockItems.map((i) => i.id)}
+                onAddAsset={onAddStock}
+                type="stock"
+                disabled={stockItems.length >= MAX_ITEMS}
+              />
             </div>
-            <AddAssetDialog
-              selectedIds={stockItems.map((i) => i.id)}
-              onAddAsset={onAddStock}
-              type="stock"
-              disabled={stockItems.length >= MAX_ITEMS}
-            />
-          </div>
+          )}
         </div>
       )}
 
@@ -238,27 +250,45 @@ function Toolbar({
 }
 
 export function MarketDashboard() {
-  const [cryptoItems, setCryptoItems] = useState<MarketItem[]>(initialCrypto)
-  const [stockItems, setStockItems] = useState<MarketItem[]>(initialStocks)
+  const { assets: cryptoAssets, usdToBrl, loading, error } = useCryptoData()
+
+  const [cryptoItems, setCryptoItems] = useState<MarketItem[] | null>(null)
+  const [stockItems, setStockItems] = useState<MarketItem[]>(HAS_FINNHUB_KEY ? initialStocks : [])
   const [cryptoSizes, setCryptoSizes] = useState<Record<string, CardSize>>({})
   const [stockSizes, setStockSizes] = useState<Record<string, CardSize>>({})
   const [cryptoRange, setCryptoRange] = useState<DateRange>('24h')
   const [stockRange, setStockRange] = useState<DateRange>('24h')
 
+  // Initialize crypto items once data loads
+  const activeCryptoItems = useMemo(() => {
+    if (cryptoItems !== null) return cryptoItems
+    if (cryptoAssets.length === 0) return []
+    return cryptoAssets.slice(0, 3)
+  }, [cryptoItems, cryptoAssets])
+
+  // Keep items synced with latest fetched data (chart data, etc.)
+  const syncedCryptoItems = useMemo(
+    () => activeCryptoItems.map((item) => {
+      const fresh = cryptoAssets.find((a) => a.id === item.id)
+      return fresh ? { ...fresh, price: item.price, change24h: item.change24h } : item
+    }),
+    [activeCryptoItems, cryptoAssets]
+  )
+
   // Live price feeds
-  const cryptoIds = useMemo(() => cryptoItems.map((i) => i.id), [cryptoItems])
+  const cryptoIds = useMemo(() => syncedCryptoItems.map((i) => i.id), [syncedCryptoItems])
   const stockIds = useMemo(() => stockItems.map((i) => i.id), [stockItems])
 
   const { prices: cryptoPrices, status: cryptoStatus } = useBinanceStream(cryptoIds)
-  const { prices: stockPrices, status: stockStatus } = useFinnhubStream(stockIds)
+  const { prices: stockPrices, status: stockStatus } = useFinnhubStream(HAS_FINNHUB_KEY ? stockIds : [])
 
   const liveCryptoItems = useMemo(
-    () => cryptoItems.map((item) => {
+    () => syncedCryptoItems.map((item) => {
       const update = cryptoPrices.get(item.id)
       if (!update) return item
       return { ...item, price: update.price, change24h: update.change24h }
     }),
-    [cryptoItems, cryptoPrices]
+    [syncedCryptoItems, cryptoPrices]
   )
 
   const liveStockItems = useMemo(
@@ -270,14 +300,45 @@ export function MarketDashboard() {
     [stockItems, stockPrices]
   )
 
-  const handleAddCrypto = useCallback((asset: MarketItem) => setCryptoItems((p) => [...p, asset]), [])
+  const handleAddCrypto = useCallback((asset: MarketItem) => {
+    setCryptoItems((p) => [...(p ?? activeCryptoItems), asset])
+  }, [activeCryptoItems])
   const handleAddStock = useCallback((asset: MarketItem) => setStockItems((p) => [...p, asset]), [])
-  const handleRemoveCrypto = useCallback((id: string) => setCryptoItems((p) => p.filter((i) => i.id !== id)), [])
+  const handleRemoveCrypto = useCallback((id: string) => {
+    setCryptoItems((p) => (p ?? activeCryptoItems).filter((i) => i.id !== id))
+  }, [activeCryptoItems])
   const handleRemoveStock = useCallback((id: string) => setStockItems((p) => p.filter((i) => i.id !== id)), [])
   const handleResizeCrypto = useCallback((id: string, size: CardSize) => setCryptoSizes((p) => ({ ...p, [id]: size })), [])
   const handleResizeStock = useCallback((id: string, size: CardSize) => setStockSizes((p) => ({ ...p, [id]: size })), [])
-  const handleReorderCrypto = useCallback((newIds: string[]) => setCryptoItems((p) => newIds.map((id) => p.find((i) => i.id === id)!)), [])
+  const handleReorderCrypto = useCallback((newIds: string[]) => {
+    setCryptoItems((p) => {
+      const items = p ?? activeCryptoItems
+      return newIds.map((id) => items.find((i) => i.id === id)!)
+    })
+  }, [activeCryptoItems])
   const handleReorderStock = useCallback((newIds: string[]) => setStockItems((p) => newIds.map((id) => p.find((i) => i.id === id)!)), [])
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-2 bg-background">
+        <p className="text-sm text-destructive">Erro ao carregar dados: {error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="text-xs text-muted-foreground underline"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background p-4 font-sans">
@@ -287,6 +348,7 @@ export function MarketDashboard() {
         items={liveCryptoItems}
         sizes={cryptoSizes}
         dateRange={cryptoRange}
+        usdToBrl={usdToBrl}
         onAdd={handleAddCrypto}
         onRemove={handleRemoveCrypto}
         onResize={handleResizeCrypto}
@@ -295,29 +357,34 @@ export function MarketDashboard() {
         connectionStatus={cryptoStatus}
       />
 
-      <MarketSection
-        label="Ações"
-        icon={<LineChart className="h-3.5 w-3.5 text-chart-2" />}
-        items={liveStockItems}
-        sizes={stockSizes}
-        dateRange={stockRange}
-        onAdd={handleAddStock}
-        onRemove={handleRemoveStock}
-        onResize={handleResizeStock}
-        onReorder={handleReorderStock}
-        type="stock"
-        connectionStatus={stockStatus}
-      />
+      {HAS_FINNHUB_KEY && (
+        <MarketSection
+          label="Ações"
+          icon={<LineChart className="h-3.5 w-3.5 text-chart-2" />}
+          items={liveStockItems}
+          sizes={stockSizes}
+          dateRange={stockRange}
+          usdToBrl={usdToBrl}
+          onAdd={handleAddStock}
+          onRemove={handleRemoveStock}
+          onResize={handleResizeStock}
+          onReorder={handleReorderStock}
+          type="stock"
+          connectionStatus={stockStatus}
+        />
+      )}
 
       <Toolbar
         cryptoRange={cryptoRange}
         stockRange={stockRange}
         onCryptoRangeChange={setCryptoRange}
         onStockRangeChange={setStockRange}
-        cryptoItems={cryptoItems}
+        cryptoItems={liveCryptoItems}
         stockItems={stockItems}
         onAddCrypto={handleAddCrypto}
         onAddStock={handleAddStock}
+        showStocks={HAS_FINNHUB_KEY}
+        allCryptoAssets={cryptoAssets}
       />
     </div>
   )
