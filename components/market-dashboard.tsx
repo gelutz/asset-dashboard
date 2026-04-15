@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -24,6 +24,28 @@ import { AddAssetDialog } from './add-asset-dialog'
 import { cryptoAssets, stockAssets } from '@/lib/fake-data'
 import type { MarketItem, CardSize, DateRange } from '@/lib/types'
 import { cn } from '@/lib/utils'
+
+const STORAGE_KEYS = {
+  cryptoIds: 'dashboard-crypto-ids',
+  stockIds: 'dashboard-stock-ids',
+  cryptoSizes: 'dashboard-crypto-sizes',
+  stockSizes: 'dashboard-stock-sizes',
+} as const
+
+function loadJson<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+function saveJson(key: string, value: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch { /* quota exceeded — silently ignore */ }
+}
 
 const MAX_ITEMS = 5
 const DATE_RANGES: { value: DateRange; label: string }[] = [
@@ -237,13 +259,35 @@ function Toolbar({
   )
 }
 
+function initItems(storageKey: string, allAssets: MarketItem[], fallback: MarketItem[]): MarketItem[] {
+  const savedIds = loadJson<string[]>(storageKey)
+  if (!savedIds) return fallback
+  const byId = new Map(allAssets.map((a) => [a.id, a]))
+  const items = savedIds.map((id) => byId.get(id)).filter(Boolean) as MarketItem[]
+  return items.length > 0 ? items : fallback
+}
+
 export function MarketDashboard() {
-  const [cryptoItems, setCryptoItems] = useState<MarketItem[]>(initialCrypto)
-  const [stockItems, setStockItems] = useState<MarketItem[]>(initialStocks)
-  const [cryptoSizes, setCryptoSizes] = useState<Record<string, CardSize>>({})
-  const [stockSizes, setStockSizes] = useState<Record<string, CardSize>>({})
+  const [cryptoItems, setCryptoItems] = useState<MarketItem[]>(() =>
+    initItems(STORAGE_KEYS.cryptoIds, cryptoAssets, initialCrypto)
+  )
+  const [stockItems, setStockItems] = useState<MarketItem[]>(() =>
+    initItems(STORAGE_KEYS.stockIds, stockAssets, initialStocks)
+  )
+  const [cryptoSizes, setCryptoSizes] = useState<Record<string, CardSize>>(() =>
+    loadJson<Record<string, CardSize>>(STORAGE_KEYS.cryptoSizes) ?? {}
+  )
+  const [stockSizes, setStockSizes] = useState<Record<string, CardSize>>(() =>
+    loadJson<Record<string, CardSize>>(STORAGE_KEYS.stockSizes) ?? {}
+  )
   const [cryptoRange, setCryptoRange] = useState<DateRange>('24h')
   const [stockRange, setStockRange] = useState<DateRange>('24h')
+
+  // Persist to localStorage on changes
+  useEffect(() => { saveJson(STORAGE_KEYS.cryptoIds, cryptoItems.map((i) => i.id)) }, [cryptoItems])
+  useEffect(() => { saveJson(STORAGE_KEYS.stockIds, stockItems.map((i) => i.id)) }, [stockItems])
+  useEffect(() => { saveJson(STORAGE_KEYS.cryptoSizes, cryptoSizes) }, [cryptoSizes])
+  useEffect(() => { saveJson(STORAGE_KEYS.stockSizes, stockSizes) }, [stockSizes])
 
   // Live price feeds
   const cryptoIds = useMemo(() => cryptoItems.map((i) => i.id), [cryptoItems])
