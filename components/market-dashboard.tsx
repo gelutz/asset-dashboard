@@ -76,9 +76,9 @@ function SortableCard({ item, size, dateRange, usdToBrl, onRemove, onResize }: S
       ref={setNodeRef}
       style={style}
       className={cn(
-        size === 'sm' && 'col-span-1',
-        size === 'md' && 'col-span-2',
-        size === 'lg' && 'col-span-3',
+        'col-span-1',
+        size === 'md' && 'sm:col-span-2',
+        size === 'lg' && 'sm:col-span-2 md:col-span-3',
       )}
     >
       <MarketCard
@@ -148,7 +148,7 @@ function MarketSection({ label, icon, items, sizes, dateRange, usdToBrl, onAdd, 
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={ids} strategy={rectSortingStrategy}>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
               {items.map((item) => (
                 <SortableCard
                   key={item.id}

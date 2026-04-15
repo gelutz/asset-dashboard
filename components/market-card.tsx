@@ -43,7 +43,7 @@ export function MarketCard({ item, size, dateRange, usdToBrl, onRemove, onResize
   return (
     <div
       className={cn(
-        'relative flex h-full max-w-xs flex-col overflow-hidden rounded-lg border border-border bg-card px-3 pt-3 pb-2',
+        'relative flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card px-3 pt-3 pb-2',
         isDragging && 'opacity-50 shadow-2xl'
       )}
     >
